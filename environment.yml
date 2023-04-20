@@ -16,6 +16,7 @@ dependencies:
   - cleo=2.0.1
   - click=8.0.4
   - cmake=3.22.1
+  - colorcet=3.0.1
   - contourpy=1.0.5
   - crashtest=0.4.1
   - cryptography=39.0.1
@@ -81,6 +82,7 @@ dependencies:
   - openssl=1.1.1t
   - osqp=0.6.2.post0
   - packaging=23.0
+  - param=1.13.0
   - patsy=0.5.3
   - pexpect=4.8.0
   - pillow=9.4.0
@@ -95,6 +97,8 @@ dependencies:
   - pybind11=2.10.1
   - pybind11-global=2.10.1
   - pycparser=2.21
+  - pyct=0.4.6
+  - pyct-core=0.4.6
   - pyopenssl=23.0.0
   - pyparsing=3.0.9
   - pyproject_hooks=1.0.0
@@ -106,6 +110,7 @@ dependencies:
   - python-tzdata=2023.3
   - python_abi=3.10
   - pytz=2022.7
+  - pyyaml=6.0
   - qdldl-python=0.1.5.post2
   - rapidfuzz=2.13.7
   - readline=8.2
@@ -134,6 +139,7 @@ dependencies:
   - wordcloud=1.8.2.2
   - xattr=0.10.1
   - xz=5.2.10
+  - yaml=0.2.5
   - zipp=3.11.0
   - zlib=1.2.13
   - zstd=1.5.5
@@ -304,7 +310,6 @@ dependencies:
       - python-json-logger==2.0.7
       - pytrends==4.9.1
       - pytz-deprecation-shim==0.1.0.post0
-      - pyyaml==6.0
       - pyzmq==25.0.2
       - quandl==3.7.0
       - rdflib==6.3.2
