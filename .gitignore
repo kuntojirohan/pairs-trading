@@ -118,4 +118,4 @@ venv.bak/
 # data
 data/
 # Database
-database.db
+pairs_trading.db
