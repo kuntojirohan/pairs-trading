@@ -1,12 +1,18 @@
 #!/usr/bin/env python
 # coding: utf-8
-
+#PATH: ./main.py
+#--This is the main file that runs all the functions from 
+# data_generation, stock_clustering, pairs_trading
 # In[6]:
 
 
-from utils.data_generation import fetch_sp500_comp, get_bus_desc_data, get_hist_price_data, get_hist_ratios_data
+from utils.data_generation import *
+from utils.stock_clustering import *
+from utils.pairs_trading import *
 import sqlite3
 import pandas as pd
+
+## -- Novel Data Set Collection -- ##
 
 # Initialise the database
 conn = sqlite3.connect('data/pairs_trading.db')
@@ -15,92 +21,89 @@ sp500_comp_profile_df = fetch_sp500_comp()
 
 ticker_list = sp500_comp_profile_df['ticker'].to_list()
 sp500_comp_profile_df = get_bus_desc_data(tickers=ticker_list, conn=conn)
-stocks_hist_price_df = get_hist_price_data(tickers=tickers, start_date="2010-01-01", end_date="2023-03-31", conn=conn)
-stocks_hist_ratios_df = get_hist_ratios_data(tickers, start=2010, conn)
+stocks_hist_price_df = get_hist_price_data(tickers=ticker_list, start_date="2010-01-01", end_date="2023-03-31", conn=conn)
+stocks_hist_ratios_df = get_hist_ratios_data(ticker_list, start=2010, conn=conn)
 
-print(f'Total stocks in S&P 500 profile data DF: {len(sp500_comp_profile_df)}')
-
-stocks_hist_price_df = pd.read_sql_query("SELECT * FROM stocks_hist_price", conn)
-print(f'Total count of unique stocks: {len(stocks_hist_price_df.ticker.unique())}\n') # in total, historical price data was fetched for 502 stocks 
-
-stocks_hist_ratios_df = pd.read_sql_query("SELECT * FROM stocks_hist_ratios", conn)
-print(f'Total count of unique stocks: {len(stocks_hist_ratios_df.ticker.unique())}\n') # in total, historical ratios data was fetched for 502 stocks 
-
-profile_tickers = sp500_comp_profile_df.ticker.unique().tolist()
-print(f'Tickers in profile dataset ({len(profile_tickers)}):\n{profile_tickers}')
-print('--'*20)
-price_tickers = stocks_hist_price_df.ticker.unique().tolist()
-print(f'Tickers in price dataset ({len(price_tickers)}):\n{price_tickers}')
-print('--'*20)
-ratio_tickers = stocks_hist_ratios_df.ticker.unique().tolist()
-print(f'Tickers in ratios dataset ({len(ratio_tickers)}):\n{ratio_tickers}')
-print('--'*20)
-common_tickers_universe = [tkr for tkr in profile_tickers if tkr in price_tickers and tkr in ratio_tickers]
-print(f'\nCommon universe of tickers ({len(common_tickers_universe)}):\n{common_tickers_universe}')
-
-# Count of companies in each sector
-sector_counts = pd.read_sql_query('''SELECT sector, COUNT(*) as num_companies FROM stocks_profile 
-                                        GROUP BY sector ORDER BY num_companies DESC limit 10''', conn)
-
-print("Top 10 sectors with the highest number of companies")
-print(sector_counts)
+## -- End of Novel Data Set Collection -- ##
 
 
-companies_by_location = pd.read_sql_query('''
-SELECT
- -- extract the state or country from the 'hq' column
-  CASE
-  
-  -- Check if the 'hq' value contains a comma followed by a space (', ')
-  
-    WHEN hq LIKE '%, %' THEN 
-    
-    -- If there's a comma followed by a space, extract the string after the comma
-    
-    SUBSTR(hq, INSTR(hq, ',') + 2)
-    
-    -- If there's no substring after a comma, then set as Unknown
-    ELSE 'Unknown'
-  END as location,
-  COUNT(*) as num_companies
-FROM stocks_profile
-GROUP BY location
-ORDER BY num_companies DESC 
-LIMIT 10
-''', conn)
+## -- Database Querying and Reporting -- ##
 
-print("\nNumber of companies based on each location:")
-print(companies_by_location)
-
-top_10_avg_volume = pd.read_sql_query('''SELECT ticker, printf('%.0f', AVG(Volume)) as avg_volume FROM stocks_hist_price 
-                                            GROUP BY ticker ORDER BY avg_volume DESC LIMIT 10''', conn)
-
-print("\nTop 10 tickers with the highest average daily trading volume:")
-print(top_10_avg_volume)
-
-top_10_days_total_volume = pd.read_sql_query('''SELECT strftime('%Y-%m-%d', date) as date, printf('%.0f', SUM(Volume)) as total_volume
-                                                FROM stocks_hist_price 
-                                                GROUP BY date ORDER BY total_volume DESC LIMIT 10''', 
-                                             conn)
-
-print("\nTop 10 trading days with the highest total trading volume across all tickers:")
-print(top_10_days_total_volume)
-
-top_10_roe_companies = pd.read_sql_query("""SELECT ticker, MAX("Fiscal Date Ending") as latest_fiscal_date,
-                                            MAX("Return on equity") as ROE FROM stocks_hist_ratios 
-                                            GROUP BY ticker ORDER BY ROE DESC LIMIT 10""", conn)
-
-print("\nTop 10 companies with the highest Return on Equity (ROE) for 2022:")
-print(top_10_roe_companies)
+display_analysis(conn)
 
 
-top_10_gpm_companies = pd.read_sql_query("""SELECT ticker, MAX("Fiscal Date Ending") as latest_fiscal_date,
-                                            MAX("Current ratio") as current_ratio FROM stocks_hist_ratios 
-                                            GROUP BY ticker ORDER BY current_ratio DESC LIMIT 10""", conn)
+## -- End of Database Querying and Reporting -- #
 
-print("\nTop 10 companies with the highest Current Ratio for 2022:")
-print(top_10_gpm_companies)
+## -- Data Preparation -- ##
 
+# clean and preprocess the stock ratios data
+
+stock_ratios_df = pd.read_sql_query("SELECT * FROM stocks_hist_ratios", conn)
+sp500_stocks_profile_df = pd.read_sql_query("SELECT * FROM stocks_profile", conn)
+
+# clean and preprocess ratios data
+target_ratios = ['Quick ratio', 'Cash ratio', 'Interest coverage', 'Debt equity ratio', 'Asset turnover', 'Receivables turnover', 
+                 'Return on assets', 'Operating profit margin', 'Enterprise value multiple', 'Payout ratio']
+ratios_pp_df = clean_preprocess_ratios_data(stock_ratios_df)
+
+# clean and preprocess stock business descriptions text
+document_topic_df, word_topic_df, sing_topic_df = preprocess_bus_desc_data(sp500_stocks_profile_df[['ticker', 'business_desc']], 
+                                                                           n_topics=80)
+
+# Plot top 10 terms within each topic
+plot_topic_top10_terms(word_topic_df)
+
+# combined feature space creation
+final_features_df = combine_and_normalize_data(ratios_pp_df, document_topic_df)
+print(final_features_df.shape)
+
+## -- End of Data Preparation -- ##
+
+## -- Model Building -- ##
+
+# K-Means
+km_cluster_df = find_and_fit_optimal_kmeans(final_features_df)
+
+# OPTICS
+db_cluster_df = optics_fit(final_features_df, min_samples=7)
+
+# Hierarchical
+hc_cluster_df = agg_hc_fit(final_features_df, n_clusters=14, linkage='average')
+
+# Cluster Analysis
+compare_clustering_results(km_cluster_df, db_cluster_df, hc_cluster_df, sp500_stocks_profile_df)
+final_cluster_df = get_final_clabel_profile_df(db_cluster_df, target_ratios)
+boxplot_cluster_fin_ratios(final_cluster_df, target_ratios)
+plot_cluster_wordclouds(final_cluster_df)
+
+## -- End of Model Building -- ##
+
+## -- Textual Analysis -- ##
+
+filtered_stock_profiles = filter_stock_profiles(sp500_stocks_profile_df)
+filtered_stock_profiles = apply_preprocessing(filtered_stock_profiles)
+unique_words_count = count_unique_words(filtered_stock_profiles)
+tfidf_sparse_matrix = tfidf_transform(filtered_stock_profiles)
+visualize_sparse_matrix(tfidf_sparse_matrix)
+
+## -- End of Textual Analysis -- ##
+
+##-- Pairs Trading --
+
+# find cointegrated pairs and perform pairs selection
+hist_final_stock_pairs = cluster_pair_selection(cluster_df=target_cluster_df)
+print(f"Number of clusters: {len(target_cluster_df.cluster.value_counts())}")
+print(f"Number of cointegrated pairs: {len(hist_final_stock_pairs)}")
+print(f"Pairs with lowest p-value from each clusters:\n{hist_final_stock_pairs}")
+
+# create a portfolio of selected pairs based on the set criterion
+portfolio = Portfolio(stocks_df=full_hist_close_df, pairs_list=hist_final_stock_pairs)
+print(f'Selected pairs: \n {portfolio.selected_pairs}')
+portfolio.plot_portfolio()
+
+# plot performance charts for the benchmark for comparison
+plot_benchmark_ret(conn)
+
+## -- End of Pairs Trading --
 conn.close()
-
 
