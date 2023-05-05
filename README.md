@@ -30,7 +30,7 @@ It contains the code for clustering stocks based on a combination of historical 
 It contains the code for finding the cointegrated pairs, building a trading strategy, backtesting and comparing its performance with the benchmark (S&P 500).
 
 ### utils folder 
-This folder the python scripts for the above 3 python notebooks with code modularisation.
+This folder has the python scripts for the above 3 python notebooks with modularised code.
 
 ## Setup & execution
 1. Create a virtual environment using the following command:
